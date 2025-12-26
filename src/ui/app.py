@@ -3,7 +3,9 @@ Main Textual application for Wispr Actions
 """
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, Static
+from textual.containers import Container
 from textual.binding import Binding
+from textual.reactive import reactive
 from rich.text import Text
 import sys
 from pathlib import Path
@@ -34,9 +36,19 @@ try:
 except ImportError:
     SettingsScreen = None
 
+try:
+    from ui.data_bindings import route_to_components
+    from ui.components.renderer import render_component
+except ImportError:
+    route_to_components = None
+    render_component = None
+
 
 class MicrophoneDisplay(Static):
     """ASCII art microphone with voice waveform."""
+
+    # Use reactive variables to force re-rendering when they change
+    update_counter = reactive(0)
 
     def __init__(self, audio_capture=None):
         super().__init__()
@@ -45,6 +57,7 @@ class MicrophoneDisplay(Static):
         self.transcript = None  # Store transcript for display
         self.parsed_command = None  # Store parsed command for display
         self.execution_result = None  # Store MCP execution result
+        self.timings = {}  # Store timing information
         self.mcp_servers = []  # List of MCP server configs
         self.connected_servers = set()  # Set of connected server names
 
@@ -54,12 +67,17 @@ class MicrophoneDisplay(Static):
         self.connected_servers = set(connected_sessions.keys())
         self.refresh()
 
-    def show_result(self, transcript: str, parsed_command: dict = None, execution_result: dict = None):
-        """Show transcription, parsed command, and execution result."""
+    def show_result(self, transcript: str, parsed_command: dict = None, execution_result: dict = None, timings: dict = None):
+        """Show transcription, parsed command, execution result, and timings."""
+        print(f"[DEBUG] show_result called: transcript={bool(transcript)}, parsed={bool(parsed_command)}, result={bool(execution_result)}, timings={timings}")
         self.transcript = transcript
         self.parsed_command = parsed_command
         self.execution_result = execution_result
-        self.refresh()
+        self.timings = timings or {}
+
+        # Force re-render by updating reactive variable
+        self.update_counter += 1
+        print(f"[DEBUG] update_counter incremented to {self.update_counter}")
 
     def clear_result(self):
         """Clear the result display."""
@@ -150,14 +168,22 @@ class MicrophoneDisplay(Static):
         if self.transcript:
             text.append("\n\n")
             text.append("╭────────────────────────────────────────────────────────────╮\n")
-            text.append("│ ", style="dim")
+
+            # ASR line with timing
+            text.append("│ ")
+            if 'asr' in self.timings:
+                asr_ms = int(self.timings['asr'] * 1000)
+                text.append(f"ASR {asr_ms}ms: ", style="dim cyan")
             text.append(self.transcript, style="italic white")
             text.append("\n")
 
-            # If we have a parsed command, show it
+            # Intent line with timing
             if self.parsed_command:
-                text.append("│\n")
-                text.append("│ ")
+                text.append("│\n│ ")
+
+                if 'intent' in self.timings:
+                    intent_ms = int(self.timings['intent'] * 1000)
+                    text.append(f"Intent {intent_ms}ms: ", style="dim cyan")
 
                 function_name = self.parsed_command["function"]
                 arguments = self.parsed_command["arguments"]
@@ -179,29 +205,50 @@ class MicrophoneDisplay(Static):
 
                 text.append("\n")
 
-                # Show execution result if available
+                # Execution line with timing and response
                 if self.execution_result:
-                    text.append("│\n")
-                    if self.execution_result.get("success"):
-                        text.append("│ ✓ ", style="green")
-                        # Show the data/content from MCP
-                        data = self.execution_result.get("data", "")
-                        if isinstance(data, list):
-                            # MCP returns content as a list of content blocks
-                            for item in data[:3]:  # Show first 3 items
-                                if hasattr(item, 'text'):
-                                    text.append(str(item.text)[:100], style="white")  # Truncate long output
-                                    text.append("...\n│   ", style="dim")
+                    try:
+                        text.append("│\n│ ")
+
+                        if 'execution' in self.timings:
+                            exec_ms = int(self.timings['execution'] * 1000)
+                            text.append(f"Execution {exec_ms}ms: ", style="dim cyan")
+
+                        if self.execution_result.get("success"):
+                            text.append("✓ Success - ", style="green")
+
+                            # Show truncated JSON preview
+                            data = self.execution_result.get("data", "")
+                            import json
+                            try:
+                                # Truncate data first to avoid huge serialization
+                                if isinstance(data, list):
+                                    if len(data) > 1:
+                                        data_preview = data[:1]  # Just first item
+                                    else:
+                                        data_preview = data
                                 else:
-                                    text.append(str(item)[:100], style="white")
-                                    text.append("...\n│   ", style="dim")
+                                    data_preview = data
+
+                                data_json = json.dumps(data_preview, indent=0, default=str)
+                                # Show first 150 chars, remove newlines for inline display
+                                preview = data_json[:150].replace('\n', ' ').replace('  ', ' ')
+                                text.append(preview, style="dim white")
+                                if len(data_json) > 150:
+                                    text.append("...", style="dim")
+                            except Exception:
+                                text.append("(data)", style="dim")
+
+                            text.append("\n")
                         else:
-                            text.append(str(data)[:200], style="white")  # Show first 200 chars
-                        text.append("\n")
-                    else:
-                        text.append("│ ✗ ", style="red")
-                        text.append(self.execution_result.get("message", "Unknown error"), style="red")
-                        text.append("\n")
+                            text.append("✗ ", style="red")
+                            text.append(self.execution_result.get("message", "Unknown error"), style="red")
+                            text.append("\n")
+                    except Exception as e:
+                        text.append("│\n│ ", style="dim")
+                        text.append(f"(Display Error: {str(e)[:100]})\n", style="red")
+                        import traceback
+                        traceback.print_exc()
             else:
                 # No command parsed
                 text.append("│ ", style="dim")
@@ -256,6 +303,28 @@ class WisprActionsApp(App):
     MicrophoneDisplay.recording {
         color: $success;
     }
+
+    #result-container {
+        width: 100%;
+        height: auto;
+        padding: 1 2;
+    }
+
+    .card {
+        border: solid $primary;
+        padding: 1;
+        margin: 1 0;
+        background: $panel;
+    }
+
+    .card-subtitle {
+        color: $text-muted;
+        padding: 0 0 1 0;
+    }
+
+    .tools-list.enabled {
+        color: $accent;
+    }
     """
 
     BINDINGS = [
@@ -272,6 +341,7 @@ class WisprActionsApp(App):
         self.v_key_held = False
         self.release_timer = None
         self.mcp_servers_config = []  # Store MCP server configs for display
+        self.current_processing_task = None  # Track current audio processing task
 
         # Initialize audio capture if available
         self.audio_capture = None
@@ -287,6 +357,9 @@ class WisprActionsApp(App):
         self.intent_parser = None
         self.mcp_gateway = None
 
+        # Check if rendering is available
+        self.rendering_available = route_to_components is not None and render_component is not None
+
         if Transcriber and IntentParser and config.get("openai_api_key"):
             try:
                 self.transcriber = Transcriber(config["openai_api_key"])
@@ -300,6 +373,8 @@ class WisprActionsApp(App):
         """Create child widgets."""
         yield Header()
         yield MicrophoneDisplay(audio_capture=self.audio_capture)
+        # Container for rich result display (mounted dynamically)
+        yield Container(id="result-container")
         yield Footer()
 
     async def on_mount(self) -> None:
@@ -353,8 +428,13 @@ class WisprActionsApp(App):
             mic.stop_recording()
             self.v_key_held = False
 
+            # Cancel any previous processing task
+            if self.current_processing_task and not self.current_processing_task.is_finished:
+                self.current_processing_task.cancel()
+                print("[DEBUG] Cancelled previous processing task")
+
             # Process the audio (non-blocking)
-            self.run_worker(self.process_audio())
+            self.current_processing_task = self.run_worker(self.process_audio(), exclusive=True)
 
     async def on_unmount(self) -> None:
         """Clean up when app closes."""
@@ -421,6 +501,10 @@ class WisprActionsApp(App):
         result = None
         mic = self.query_one(MicrophoneDisplay)
 
+        # Timing tracking
+        import time
+        timings = {}
+
         try:
             # Get the recorded audio data
             audio_data = self.audio_capture.get_audio_data()
@@ -431,6 +515,7 @@ class WisprActionsApp(App):
 
             # Step 1: Transcribe with Whisper
             self.notify("Transcribing...")
+            start_time = time.time()
 
             # Run blocking I/O in thread pool
             import asyncio
@@ -442,35 +527,68 @@ class WisprActionsApp(App):
                 16000  # Sample rate from AudioCapture
             )
 
+            timings['asr'] = time.time() - start_time
+
             if not transcript:
                 self.notify("No speech detected")
                 # Show empty transcript so user knows it tried
-                mic.show_result("(no speech detected)", None, None)
+                mic.show_result("(no speech detected)", None, None, timings)
                 return
+
+            # Show ASR result immediately
+            mic.show_result(transcript, None, None, timings)
 
             # Step 2: Parse intent with GPT-4
             self.notify("Understanding command...")
+            start_time = time.time()
+
             parsed = await loop.run_in_executor(
                 None,
                 self.intent_parser.parse,
                 transcript
             )
 
+            timings['intent'] = time.time() - start_time
+
+            # Show ASR + Intent immediately
+            mic.show_result(transcript, parsed, None, timings)
+
             # Step 3: Execute the command via MCP if we have one
             if parsed:
                 # Execute the tool via MCP gateway
                 if self.mcp_gateway:
                     self.notify("Executing...")
+                    start_time = time.time()
+
                     result = await self.mcp_gateway.execute_tool(
                         parsed["function"],
                         parsed["arguments"]
                     )
+
+                    timings['execution'] = time.time() - start_time
 
                     # Show execution result in notification
                     if result["success"]:
                         self.notify(f"✓ {result['message']}")
                     else:
                         self.notify(f"✗ {result['message']}")
+
+                    # Show ALL results immediately after execution
+                    mic.show_result(transcript, parsed, result, timings)
+
+                    # Render rich results if available
+                    if result.get("success") and self.rendering_available:
+                        try:
+                            start_time = time.time()
+                            await self.render_rich_results(result, parsed)
+                            timings['render'] = time.time() - start_time
+                            # Update display with render timing
+                            mic.show_result(transcript, parsed, result, timings)
+                        except Exception as e:
+                            # If render fails, just log it and continue
+                            print(f"[ERROR] Rich render failed: {str(e)}")
+                            import traceback
+                            traceback.print_exc()
                 else:
                     self.notify("Command recognized (MCP not connected)")
             else:
@@ -478,7 +596,42 @@ class WisprActionsApp(App):
 
         except Exception as e:
             self.notify(f"Error: {str(e)}")
-        finally:
-            # ALWAYS show the transcript, even if parsing/execution failed
+            import traceback
+            traceback.print_exc()
+            # Show error state if we have a transcript
             if transcript:
-                mic.show_result(transcript, parsed, result)
+                mic.show_result(transcript, parsed, None, timings)
+
+    async def render_rich_results(self, result: dict, parsed: dict) -> None:
+        """
+        Render execution results using the display mapper.
+
+        Args:
+            result: MCP execution result
+            parsed: Parsed command (for tool name)
+        """
+        try:
+            # Get the result container
+            container = self.query_one("#result-container", Container)
+
+            # Clear previous results
+            await container.remove_children()
+
+            # Extract data from result
+            data = result.get("data", "")
+            tool_name = parsed.get("function") if parsed else None
+
+            # Map data to components (instant, no LLM needed)
+            component = route_to_components(data, tool_name)
+
+            # Render component to widget
+            widget = render_component(component)
+
+            # Mount widget in container
+            await container.mount(widget)
+
+        except Exception as e:
+            # Fallback to simple error display
+            self.notify(f"Error rendering results: {str(e)}")
+            import traceback
+            traceback.print_exc()
