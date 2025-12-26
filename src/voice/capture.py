@@ -30,6 +30,10 @@ class AudioCapture:
 
         self.is_recording = True
 
+        # Clear any leftover audio from previous session
+        while not self.audio_queue.empty():
+            self.audio_queue.get()
+
         # Open audio stream in BLOCKING mode (no callback thread)
         self.stream = self.p.open(
             format=self.FORMAT,
@@ -58,7 +62,7 @@ class AudioCapture:
     def get_volume_level(self):
         """Get current audio volume level (0-100)."""
         # Read audio and update volume in blocking mode
-        if self.is_recording and self.stream:
+        if self.stream and self.stream.is_active():
             try:
                 # Read one chunk from mic
                 in_data = self.stream.read(self.CHUNK, exception_on_overflow=False)
@@ -74,8 +78,9 @@ class AudioCapture:
                     # Very sensitive: 300 RMS = 100%
                     self.volume_level = min(100, int((rms / 300) * 100))
 
-                # Store for later Whisper processing
-                self.audio_queue.put(in_data)
+                # Only store audio if we're actively recording
+                if self.is_recording:
+                    self.audio_queue.put(in_data)
             except Exception:
                 pass  # Ignore read errors
 

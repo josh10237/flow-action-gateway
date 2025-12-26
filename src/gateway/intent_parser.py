@@ -13,6 +13,11 @@ class IntentParser:
         self.client = OpenAI(api_key=api_key)
         self.tools = tools or []
 
+        # Debug: Print available tools
+        print(f"\n=== Intent Parser initialized with {len(self.tools)} tools ===", file=__import__('sys').stderr)
+        for tool in self.tools:
+            print(f"  - {tool['function']['name']}: {tool['function']['description'][:80]}...", file=__import__('sys').stderr)
+
     def parse(self, transcript: str) -> Optional[Dict[str, Any]]:
         """
         Parse a voice transcript into a structured command.
@@ -62,6 +67,8 @@ If the command doesn't match any available function, don't make a function call.
 
             # Check if GPT-4 made a function call
             if not message.tool_calls:
+                print(f"\n=== No tool call for: '{transcript}' ===", file=__import__('sys').stderr)
+                print(f"GPT-4 response: {message.content}", file=__import__('sys').stderr)
                 return None
 
             # Extract the function call

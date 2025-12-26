@@ -29,6 +29,11 @@ except ImportError:
     MCPGateway = None
     MCPConfig = None
 
+try:
+    from ui.settings_screen import SettingsScreen
+except ImportError:
+    SettingsScreen = None
+
 
 class MicrophoneDisplay(Static):
     """ASCII art microphone with voice waveform."""
@@ -255,8 +260,8 @@ class WisprActionsApp(App):
 
     BINDINGS = [
         Binding("v", "hold_to_speak", "Hold to Speak", show=True, key_display="V"),
+        Binding("s", "settings", "Settings", show=True),
         Binding("q", "quit", "Quit", show=True),
-        Binding("s", "settings", "Settings", show=False),
     ]
 
     def __init__(self, config: dict):
@@ -363,7 +368,39 @@ class WisprActionsApp(App):
 
     def action_settings(self) -> None:
         """Open settings screen."""
-        self.notify("Settings coming soon!")
+        if not SettingsScreen:
+            self.notify("Settings screen not available")
+            return
+
+        # Create save callback
+        def on_save(updated_servers):
+            # Save to config file
+            if self.mcp_gateway and self.mcp_gateway.mcp_config:
+                self.mcp_gateway.mcp_config.save_config(updated_servers)
+
+        # Get current connection status
+        connected_servers = self.mcp_gateway.sessions if self.mcp_gateway else {}
+
+        # Get original configs (with env templates intact)
+        original_configs = self.mcp_gateway.mcp_config.get_original_server_configs() if self.mcp_gateway and self.mcp_gateway.mcp_config else self.mcp_servers_config
+
+        # Define callback to refresh MCP status when returning from settings
+        def on_settings_close():
+            # Update microphone display with current MCP status
+            mic = self.query_one(MicrophoneDisplay)
+            mic.set_mcp_status(self.mcp_servers_config, self.mcp_gateway.sessions if self.mcp_gateway else {})
+
+        # Push settings screen
+        self.push_screen(
+            SettingsScreen(
+                self.mcp_servers_config,
+                connected_servers,
+                on_save,
+                self.mcp_gateway,  # Pass gateway for test connections
+                original_configs  # Pass original configs for display
+            ),
+            callback=lambda _: on_settings_close()
+        )
 
     def action_quit(self) -> None:
         """Quit the application."""

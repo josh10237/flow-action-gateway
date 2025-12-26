@@ -4,20 +4,27 @@
       "name": "filesystem",
       "display_name": "Files",
       "icon": "📁",
-      "enabled": true,
+      "enabled": "${MCP_FILESYSTEM_ENABLED}",
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/Users/joshbenson"],
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "${MCP_FILESYSTEM_PATH}"
+      ],
       "env": {}
     },
     {
       "name": "github",
       "display_name": "GitHub",
       "icon": "🐙",
-      "enabled": false,
+      "enabled": "${MCP_GITHUB_ENABLED}",
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
       "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
       }
     }
   ]
