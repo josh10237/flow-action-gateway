@@ -1,0 +1,16 @@
+# Core dependencies
+textual>=0.47.0
+openai>=1.12.0
+python-dotenv>=1.0.0
+
+# Voice processing
+pyaudio>=0.2.13
+numpy>=1.24.0
+
+# MCP integration (will add later)
+# mcp>=0.1.0
+
+# Optional dependencies
+# google-auth>=2.27.0
+# google-auth-oauthlib>=1.2.0
+# google-api-python-client>=2.116.0
