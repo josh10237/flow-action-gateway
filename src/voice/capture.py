@@ -4,6 +4,8 @@ Audio capture from microphone using PyAudio
 import pyaudio
 import numpy as np
 import threading
+import wave
+import io
 from queue import Queue
 
 
@@ -16,6 +18,10 @@ class AudioCapture:
         self.is_recording = False
         self.audio_queue = Queue()
         self.volume_level = 0
+
+        # WAV encoding (created during recording)
+        self.wav_buffer = None
+        self.wav_file = None
 
         # Audio settings
         self.CHUNK = 1024
@@ -33,6 +39,13 @@ class AudioCapture:
         # Clear any leftover audio from previous session
         while not self.audio_queue.empty():
             self.audio_queue.get()
+
+        # Pre-create WAV buffer and start encoding during capture
+        self.wav_buffer = io.BytesIO()
+        self.wav_file = wave.open(self.wav_buffer, 'wb')
+        self.wav_file.setnchannels(self.CHANNELS)
+        self.wav_file.setsampwidth(self.p.get_sample_size(self.FORMAT))
+        self.wav_file.setframerate(self.RATE)
 
         # Open audio stream in BLOCKING mode (no callback thread)
         self.stream = self.p.open(
@@ -59,6 +72,13 @@ class AudioCapture:
             finally:
                 self.stream = None
 
+        # Close WAV file to finalize encoding
+        if self.wav_file:
+            try:
+                self.wav_file.close()
+            except Exception:
+                pass  # Ignore errors during cleanup
+
     def get_volume_level(self):
         """Get current audio volume level (0-100)."""
         # Read audio and update volume in blocking mode
@@ -81,18 +101,20 @@ class AudioCapture:
                 # Only store audio if we're actively recording
                 if self.is_recording:
                     self.audio_queue.put(in_data)
+                    # Write frame to WAV file as we capture (parallel encoding)
+                    if self.wav_file:
+                        self.wav_file.writeframes(in_data)
             except Exception:
                 pass  # Ignore read errors
 
         return self.volume_level
 
     def get_audio_data(self):
-        """Get all recorded audio data as bytes."""
-        audio_chunks = []
-        while not self.audio_queue.empty():
-            audio_chunks.append(self.audio_queue.get())
-
-        return b''.join(audio_chunks)
+        """Get all recorded audio data as pre-encoded WAV bytes."""
+        # Return the already-encoded WAV file
+        if self.wav_buffer:
+            return self.wav_buffer.getvalue()
+        return b''
 
     def cleanup(self):
         """Clean up PyAudio resources."""

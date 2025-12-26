@@ -2,7 +2,6 @@
 Voice transcription using OpenAI Whisper API
 """
 import io
-import wave
 from openai import OpenAI
 
 
@@ -17,8 +16,8 @@ class Transcriber:
         Transcribe audio bytes to text.
 
         Args:
-            audio_data: Raw audio bytes (16-bit PCM)
-            sample_rate: Audio sample rate (default 16000 for Whisper)
+            audio_data: Pre-encoded WAV audio bytes (from AudioCapture)
+            sample_rate: Audio sample rate (ignored, WAV is already encoded)
 
         Returns:
             Transcribed text
@@ -26,14 +25,8 @@ class Transcriber:
         if not audio_data:
             return ""
 
-        # Convert raw audio bytes to WAV format for Whisper API
-        wav_buffer = io.BytesIO()
-        with wave.open(wav_buffer, 'wb') as wav_file:
-            wav_file.setnchannels(1)  # Mono
-            wav_file.setsampwidth(2)  # 16-bit
-            wav_file.setframerate(sample_rate)
-            wav_file.writeframes(audio_data)
-
+        # Audio is already WAV-encoded from AudioCapture
+        wav_buffer = io.BytesIO(audio_data)
         wav_buffer.seek(0)
         wav_buffer.name = "audio.wav"  # Whisper API needs a filename
 
