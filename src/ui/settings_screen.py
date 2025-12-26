@@ -195,7 +195,7 @@ class SettingsScreen(Screen):
                     yield widget
 
             with Horizontal(classes="button-row"):
-                yield Button("Save & Restart", variant="primary", id="save-button")
+                yield Button("Save & Exit", variant="primary", id="save-button")
                 yield Button("Cancel", variant="default", id="cancel-button")
 
         yield Footer()
@@ -218,7 +218,7 @@ class SettingsScreen(Screen):
         event.input.blur()
 
     def action_save(self) -> None:
-        """Save the configuration and close settings."""
+        """Save the configuration and quit the app."""
         # Collect updated configs from all widgets
         updated_configs = []
         for widget in self.server_widgets:
@@ -228,11 +228,11 @@ class SettingsScreen(Screen):
         # Call the save callback
         self.on_save_callback(updated_configs)
 
-        # Show notification
-        self.app.notify("Settings saved! Restart app to apply changes.", severity="information")
+        # Show notification briefly
+        self.app.notify("Settings saved! Exiting...", severity="information")
 
-        # Close settings screen
-        self.app.pop_screen()
+        # Quit the app so user can restart
+        self.app.exit()
 
     def action_cancel(self) -> None:
         """Cancel and close settings without saving."""

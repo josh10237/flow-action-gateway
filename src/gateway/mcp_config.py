@@ -105,7 +105,7 @@ class MCPConfig:
 
         # Update with new server configs
         for server in updated_servers:
-            server_name = server["name"].upper()
+            server_name = server["name"].upper().replace("-", "_")
 
             # Save enabled state
             enabled = server.get("enabled", True)
@@ -139,7 +139,12 @@ class MCPConfig:
             # GitHub
             f.write("# GitHub MCP\n")
             f.write(f"MCP_GITHUB_ENABLED={existing_env.get('MCP_GITHUB_ENABLED', 'true')}\n")
-            f.write(f"GITHUB_PERSONAL_ACCESS_TOKEN={existing_env.get('GITHUB_PERSONAL_ACCESS_TOKEN', '')}\n")
+            f.write(f"GITHUB_PERSONAL_ACCESS_TOKEN={existing_env.get('GITHUB_PERSONAL_ACCESS_TOKEN', '')}\n\n")
+
+            # Brave Search
+            f.write("# Brave Search MCP\n")
+            f.write(f"MCP_BRAVE_SEARCH_ENABLED={existing_env.get('MCP_BRAVE_SEARCH_ENABLED', 'false')}\n")
+            f.write(f"BRAVE_API_KEY={existing_env.get('BRAVE_API_KEY', '')}\n")
 
         # Atomic rename
         temp_path.replace(env_path)

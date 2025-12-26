@@ -26,6 +26,20 @@
       "env": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
       }
+    },
+    {
+      "name": "brave-search",
+      "display_name": "Brave Search",
+      "icon": "🔍",
+      "enabled": "${MCP_BRAVE_SEARCH_ENABLED}",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@brave/brave-search-mcp-server"
+      ],
+      "env": {
+        "BRAVE_API_KEY": "${BRAVE_API_KEY}"
+      }
     }
   ]
 }
