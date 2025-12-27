@@ -221,7 +221,7 @@ class WisprActionsApp:
 **Traditional approach:**
 ```python
 if service == "slack": slack_client.send(...)
-elif service == "gmail": gmail_client.send(...)
+elif service == "notion": notion_client.create(...)
 # O(N) code changes
 ```
 
