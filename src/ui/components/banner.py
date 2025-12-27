@@ -1,10 +1,5 @@
 """
-Banner component - displays success/error/info messages.
-
-Schema fields:
-- type (required): "success" | "error" | "info"
-- message (required): Text to display
-- icon (optional): Emoji icon
+Banner component
 """
 from pydantic import BaseModel
 from typing import Optional, Literal
@@ -13,7 +8,6 @@ from rich.text import Text
 
 
 class BannerComponent(BaseModel):
-    """Banner component schema."""
     component: str = "banner"
     type: Literal["success", "error", "info"]
     message: str
@@ -21,24 +15,20 @@ class BannerComponent(BaseModel):
 
 
 class BannerWidget(Static):
-    """Textual widget for rendering a banner."""
-
     def __init__(self, banner: BannerComponent, **kwargs):
         super().__init__(**kwargs)
         self.banner = banner
 
     def render(self) -> Text:
-        """Render the banner text."""
         text = Text()
 
-        # Style based on type
         if self.banner.type == "success":
             style = "green"
             default_icon = "✓"
         elif self.banner.type == "error":
             style = "red"
             default_icon = "✗"
-        else:  # info
+        else:
             style = "blue"
             default_icon = "ℹ"
 

@@ -13,27 +13,11 @@ class IntentParser:
         self.client = OpenAI(api_key=api_key)
         self.tools = tools or []
 
-        # Debug: Print available tools
-        print(f"\n=== Intent Parser initialized with {len(self.tools)} tools ===", file=__import__('sys').stderr)
-        for tool in self.tools:
-            print(f"  - {tool['function']['name']}: {tool['function']['description'][:80]}...", file=__import__('sys').stderr)
-
     def parse(self, transcript: str) -> Optional[Dict[str, Any]]:
-        """
-        Parse a voice transcript into a structured command.
-
-        Args:
-            transcript: Text from Whisper
-
-        Returns:
-            Dict with 'function', 'arguments', and 'original_text'
-            None if no command was recognized
-        """
         if not transcript.strip():
             return None
 
         try:
-            # Call GPT-4 with function calling
             response = self.client.chat.completions.create(
                 model="gpt-4-turbo",
                 messages=[
@@ -65,13 +49,9 @@ If the command doesn't match any available function, don't make a function call.
 
             message = response.choices[0].message
 
-            # Check if GPT-4 made a function call
             if not message.tool_calls:
-                print(f"\n=== No tool call for: '{transcript}' ===", file=__import__('sys').stderr)
-                print(f"GPT-4 response: {message.content}", file=__import__('sys').stderr)
                 return None
 
-            # Extract the function call
             tool_call = message.tool_calls[0]
             function_name = tool_call.function.name
             arguments = json.loads(tool_call.function.arguments)
@@ -82,7 +62,5 @@ If the command doesn't match any available function, don't make a function call.
                 "original_text": transcript
             }
 
-        except Exception as e:
-            # Log error but don't crash
-            print(f"Error parsing intent: {e}", file=__import__('sys').stderr)
+        except Exception:
             return None

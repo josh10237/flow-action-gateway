@@ -1,5 +1,5 @@
 """
-Settings screen for configuring MCP servers
+Settings screen
 """
 from textual.screen import Screen
 from textual.app import ComposeResult
@@ -11,8 +11,6 @@ from ui.components.mcp_settings import MCPSettingsWidget
 
 
 class SettingsScreen(Screen):
-    """Screen for configuring MCP servers."""
-
     BINDINGS = [
         Binding("escape", "cancel", "Back", show=True),
         Binding("b", "cancel", "Back", show=True),

@@ -1,12 +1,11 @@
 """
-UI Components - reusable display components.
+UI Components
 """
 from .banner import BannerComponent, BannerWidget
 from .card import CardComponent, CardWidget
 from .list import ListComponent, ListWidget
 from .keyvalue import KeyValueComponent, KeyValueWidget
 from .link import LinkComponent, LinkWidget
-from .file import FileComponent, FileWidget
 
 __all__ = [
     "BannerComponent",
@@ -19,6 +18,4 @@ __all__ = [
     "KeyValueWidget",
     "LinkComponent",
     "LinkWidget",
-    "FileComponent",
-    "FileWidget",
 ]
