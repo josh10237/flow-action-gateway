@@ -7,7 +7,7 @@ from textual.widgets import Header, Footer, Static, Button, Label, Input
 from textual.containers import Container, Vertical, Horizontal
 from textual.binding import Binding
 from typing import Dict, List, Any, Callable
-from ui.widgets.server_config import ServerConfigWidget
+from ui.components.mcp_settings import MCPSettingsWidget
 
 
 class SettingsScreen(Screen):
@@ -158,7 +158,7 @@ class SettingsScreen(Screen):
         self.connected_servers = connected_servers
         self.on_save_callback = on_save
         self.mcp_gateway = mcp_gateway
-        self.server_widgets: List[ServerConfigWidget] = []
+        self.server_widgets: List[MCPSettingsWidget] = []
         self.test_results: Dict[str, str] = {}  # server_name -> test result message
 
         # Get tools cache from gateway
@@ -190,7 +190,7 @@ class SettingsScreen(Screen):
                     # Get available tools for this server
                     available_tools = self.tools_cache.get(server_name, [])
 
-                    widget = ServerConfigWidget(server_config, status, original_config, available_tools)
+                    widget = MCPSettingsWidget(server_config, status, original_config, available_tools)
                     self.server_widgets.append(widget)
                     yield widget
 

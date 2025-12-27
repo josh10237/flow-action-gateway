@@ -164,6 +164,19 @@ flow-action-gateway/
 - **Services:** Currently filesystem, GitHub, Brave Search
   - More can be added via config only (no code changes)
 
+## Testing
+
+Run the test suite:
+```bash
+cd tests && python run_all_tests.py
+```
+
+**Test structure:**
+- **Unit tests**: Individual functions (HTML processing, field filtering)
+- **Functional tests**: Full application flows (data binding, APIs, voice pipeline)
+
+Tests automatically skip components that aren't available (e.g., API keys, audio drivers).
+
 ## Development
 
 Built for the Wispr full-stack engineering challenge. Demonstrates:

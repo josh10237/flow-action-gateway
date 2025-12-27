@@ -1,5 +1,5 @@
 """
-Server configuration widget for MCP servers
+MCP server configuration widget.
 """
 from textual.widgets import Static, Input, Label, Button
 from textual.containers import Container, Vertical
@@ -7,7 +7,7 @@ from textual.app import ComposeResult
 from typing import Dict, Any
 
 
-class ServerConfigWidget(Static):
+class MCPSettingsWidget(Static):
     """Widget for configuring a single MCP server."""
 
     def __init__(self, server_config: Dict[str, Any], connection_status: str = "Unknown", original_config: Dict[str, Any] = None, available_tools: list = None):

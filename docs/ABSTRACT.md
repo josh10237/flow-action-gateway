@@ -74,3 +74,28 @@ Wispr Actions is the only approach that achieves:
 - **Unlimited app coverage** (via MCP ecosystem)
 - **Rich visual responses** (via component library + data bindings)
 - **Maintainable at scale** (O(1) effort for both inputs and outputs)
+
+## Scope
+
+### In Scope
+
+**Primary focus:** Solving integration at scale
+
+- **MCP Gateway architecture:** Demonstrating O(1) integration pattern that works with unlimited tools
+- **Auto data binder:** Zero-code UI generation for any MCP tool response
+- **System scalability:** Architecture that grows more powerful as MCP ecosystem grows without code changes
+- **Core functionality:** Voice input → intent parsing → tool execution → visual output
+
+### Out of Scope
+
+**Not the focus of this demo:**
+
+- **Latency optimization:** Current 4-6s is acceptable for demo. Production would use Wispr's streaming ASR model (eliminates 2-3s Whisper API latency) and run intent inference on the same or nearby server as the client (eliminates network round-trips). Total latency would drop to <500ms.
+
+- **Production UX polish:** Terminal UI demonstrates architecture. Production would use web/native frontend with the same backend.
+
+- **Authentication/security:** MCP servers handle auth. This demo uses API keys in env vars. Production would need OAuth flows, secure credential storage, and user session management.
+
+- **Error recovery:** Basic error handling only. Production needs retry logic, graceful degradation, offline mode, and detailed error reporting.
+
+The demo prioritizes proving the scalability architecture over production-ready implementation details.

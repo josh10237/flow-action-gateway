@@ -37,10 +37,10 @@ except ImportError:
     SettingsScreen = None
 
 try:
-    from ui.data_bindings import route_to_components
+    from ui.auto_data_binder import bind_data
     from ui.components.renderer import render_component
 except ImportError:
-    route_to_components = None
+    bind_data = None
     render_component = None
 
 
@@ -358,7 +358,7 @@ class WisprActionsApp(App):
         self.mcp_gateway = None
 
         # Check if rendering is available
-        self.rendering_available = route_to_components is not None and render_component is not None
+        self.rendering_available = bind_data is not None and render_component is not None
 
         if Transcriber and IntentParser and config.get("openai_api_key"):
             try:
@@ -619,10 +619,9 @@ class WisprActionsApp(App):
 
             # Extract data from result
             data = result.get("data", "")
-            tool_name = parsed.get("function") if parsed else None
 
-            # Map data to components (instant, no LLM needed)
-            component = route_to_components(data, tool_name)
+            # Bind data to components (instant, no LLM needed)
+            component = bind_data(data)
 
             # Render component to widget
             widget = render_component(component)

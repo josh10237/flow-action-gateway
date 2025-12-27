@@ -42,12 +42,18 @@ class CardWidget(Vertical):
         self.styles.border = ("solid", "blue")
         self.styles.padding = (1, 2)
         self.styles.margin = (0, 0, 1, 0)
+        self.styles.height = "auto"  # Allow card to expand to fit content
+        self.styles.min_height = 3  # Ensure cards are never collapsed
 
     def _build_title(self) -> str:
         """Build the border title with optional icon."""
+        title = self.card.title
+
+        # Add icon
         if self.card.icon:
-            return f"{self.card.icon} {self.card.title}"
-        return self.card.title
+            title = f"{self.card.icon} {title}"
+
+        return title
 
     def compose(self):
         """Compose the card contents."""
