@@ -2,6 +2,10 @@
 
 Voice-controlled gateway combining **fast voice input** with **rich visual output** for productivity apps.
 
+## Demo
+
+[![Watch the demo](docs/thumbnail.png)](https://www.youtube.com/watch?v=sZqSQwHQDtY)
+
 ## What This Does
 
 Speak natural language → Get structured visual results. No custom integration code per app.
