@@ -25,16 +25,10 @@ class IntentParser:
                         "role": "system",
                         "content": """You are a voice command assistant. Parse the user's voice command into the appropriate function call.
 
-The user's home directory is /Users/joshbenson
-
-When the user mentions a file/folder without a full path, use /Users/joshbenson/ as the base.
-When they mention common folders like Desktop, Documents, Downloads, assume they mean /Users/joshbenson/Desktop, etc.
-
 Examples:
-- "read test.txt" → read_text_file(path="/Users/joshbenson/test.txt")
-- "list files on desktop" → list_directory(path="/Users/joshbenson/Desktop")
-- "list files in downloads" → list_directory(path="/Users/joshbenson/Downloads")
-- "search for pdf files" → search_files(path="/Users/joshbenson", pattern="**/*.pdf")
+- "list files on desktop" → list_directory(path="Desktop")
+- "search github for react repos" → search_repositories(query="react")
+- "search for python tutorials" → brave_web_search(query="python tutorials")
 
 If the command doesn't match any available function, don't make a function call."""
                     },

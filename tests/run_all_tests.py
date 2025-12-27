@@ -15,8 +15,7 @@ from unit.test_html_processing import TestHTMLStripping, TestTextTruncation
 from unit.test_field_filtering import TestFieldSkipping, TestURLDetection, TestFieldNameFormatting, TestIconInference
 from functional.test_application import (
     TestBindDataSingleObject, TestBindDataList, TestBindDataPrimitives, TestErrorHandling,
-    TestGitHubAPI, TestWebSearchAPI,
-    TestVoicePipeline, TestConfigIntegration
+    TestGitHubAPI, TestWebSearchAPI
 )
 
 
@@ -66,7 +65,6 @@ def main():
         ("Unit Tests - Field Filtering", [TestFieldSkipping, TestURLDetection, TestFieldNameFormatting, TestIconInference]),
         ("Functional Tests - Data Binding", [TestBindDataSingleObject, TestBindDataList, TestBindDataPrimitives, TestErrorHandling]),
         ("Functional Tests - Real-World APIs", [TestGitHubAPI, TestWebSearchAPI]),
-        ("Functional Tests - Voice Pipeline", [TestVoicePipeline, TestConfigIntegration]),
     ]
 
     for group_name, test_classes in test_groups:

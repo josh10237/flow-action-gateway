@@ -83,10 +83,9 @@ class MCPConfig:
             enabled = server.get("enabled", True)
             existing_env[f"MCP_{server_name}_ENABLED"] = "true" if enabled else "false"
 
-            if server_name == "FILESYSTEM":
-                args = server.get("args", [])
-                if len(args) > 0:
-                    existing_env["MCP_FILESYSTEM_PATH"] = args[-1]
+            for i, arg in enumerate(server.get("args", [])):
+                if isinstance(arg, str):
+                    existing_env[f"MCP_{server_name}_ARG_{i}"] = arg
 
             env_vars = server.get("env", {})
             for key, value in env_vars.items():
@@ -96,16 +95,23 @@ class MCPConfig:
         temp_path = env_path.with_suffix('.tmp')
         with open(temp_path, 'w') as f:
             f.write("OPENAI_API_KEY=" + existing_env.get("OPENAI_API_KEY", "") + "\n")
-            f.write("\n# MCP Server Configuration\n\n")
-            f.write("# Filesystem MCP\n")
-            f.write(f"MCP_FILESYSTEM_ENABLED={existing_env.get('MCP_FILESYSTEM_ENABLED', 'true')}\n")
-            f.write(f"MCP_FILESYSTEM_PATH={existing_env.get('MCP_FILESYSTEM_PATH', os.path.expanduser('~'))}\n\n")
-            f.write("# GitHub MCP\n")
-            f.write(f"MCP_GITHUB_ENABLED={existing_env.get('MCP_GITHUB_ENABLED', 'true')}\n")
-            f.write(f"GITHUB_PERSONAL_ACCESS_TOKEN={existing_env.get('GITHUB_PERSONAL_ACCESS_TOKEN', '')}\n\n")
-            f.write("# Brave Search MCP\n")
-            f.write(f"MCP_BRAVE_SEARCH_ENABLED={existing_env.get('MCP_BRAVE_SEARCH_ENABLED', 'false')}\n")
-            f.write(f"BRAVE_API_KEY={existing_env.get('BRAVE_API_KEY', '')}\n")
+            f.write("\n# MCP Server Configuration\n")
+
+            for server in updated_servers:
+                server_name = server["name"].upper().replace("-", "_")
+                display_name = server.get("display_name", server["name"])
+
+                f.write(f"\n# {display_name}\n")
+                f.write(f"MCP_{server_name}_ENABLED={existing_env.get(f'MCP_{server_name}_ENABLED', 'true')}\n")
+
+                for i, arg in enumerate(server.get("args", [])):
+                    arg_key = f"MCP_{server_name}_ARG_{i}"
+                    if arg_key in existing_env:
+                        f.write(f"{arg_key}={existing_env[arg_key]}\n")
+
+                for key in server.get("env", {}).keys():
+                    if key in existing_env:
+                        f.write(f"{key}={existing_env[key]}\n")
 
         temp_path.replace(env_path)
         self.load_config()
