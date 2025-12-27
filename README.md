@@ -17,6 +17,12 @@ Speak natural language → Get structured visual results. No custom integration 
 
 ## Quick Start
 
+**macOS:** Install portaudio first (required for audio capture):
+```bash
+brew install portaudio
+```
+
+**All platforms:**
 ```bash
 pip install -r requirements.txt
 python main.py
