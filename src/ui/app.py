@@ -161,66 +161,75 @@ class MicrophoneDisplay(Static):
                     intent_ms = int(self.timings['intent'] * 1000)
                     text.append(f"Intent {intent_ms}ms: ", style="dim cyan")
 
-                function_name = self.parsed_command["function"]
-                arguments = self.parsed_command["arguments"]
+                # Check if this is an error response from the parser
+                if self.parsed_command.get("error"):
+                    text.append("✗ ", style="red")
+                    text.append(self.parsed_command["error"], style="red")
+                    text.append("\n")
+                elif not self.parsed_command.get("function"):
+                    text.append("(no command found)", style="dim yellow")
+                    text.append("\n")
+                else:
+                    function_name = self.parsed_command["function"]
+                    arguments = self.parsed_command["arguments"]
 
-                text.append(function_name, style="bold blue")
+                    text.append(function_name, style="bold blue")
 
-                for key, value in arguments.items():
-                    text.append(" ")
-                    text.append(key, style="red")
-                    text.append(" ")
+                    for key, value in arguments.items():
+                        text.append(" ")
+                        text.append(key, style="red")
+                        text.append(" ")
 
-                    if isinstance(value, list):
-                        formatted_value = ", ".join(str(v) for v in value)
-                        text.append(f'"{formatted_value}"', style="white")
-                    elif isinstance(value, str):
-                        text.append(f'"{value}"', style="white")
-                    else:
-                        text.append(str(value), style="white")
+                        if isinstance(value, list):
+                            formatted_value = ", ".join(str(v) for v in value)
+                            text.append(f'"{formatted_value}"', style="white")
+                        elif isinstance(value, str):
+                            text.append(f'"{value}"', style="white")
+                        else:
+                            text.append(str(value), style="white")
 
-                text.append("\n")
+                    text.append("\n")
 
-                if self.execution_result:
-                    try:
-                        text.append("│\n│ ")
+                    if self.execution_result:
+                        try:
+                            text.append("│\n│ ")
 
-                        if 'execution' in self.timings:
-                            exec_ms = int(self.timings['execution'] * 1000)
-                            text.append(f"Execution {exec_ms}ms: ", style="dim cyan")
+                            if 'execution' in self.timings:
+                                exec_ms = int(self.timings['execution'] * 1000)
+                                text.append(f"Execution {exec_ms}ms: ", style="dim cyan")
 
-                        if self.execution_result.get("success"):
-                            text.append("✓ Success - ", style="green")
+                            if self.execution_result.get("success"):
+                                text.append("✓ Success - ", style="green")
 
-                            data = self.execution_result.get("data", "")
-                            import json
-                            try:
-                                if isinstance(data, list):
-                                    if len(data) > 1:
-                                        data_preview = data[:1]
+                                data = self.execution_result.get("data", "")
+                                import json
+                                try:
+                                    if isinstance(data, list):
+                                        if len(data) > 1:
+                                            data_preview = data[:1]
+                                        else:
+                                            data_preview = data
                                     else:
                                         data_preview = data
-                                else:
-                                    data_preview = data
 
-                                data_json = json.dumps(data_preview, indent=0, default=str)
-                                preview = data_json[:150].replace('\n', ' ').replace('  ', ' ')
-                                text.append(preview, style="dim white")
-                                if len(data_json) > 150:
-                                    text.append("...", style="dim")
-                            except Exception:
-                                text.append("(data)", style="dim")
+                                    data_json = json.dumps(data_preview, indent=0, default=str)
+                                    preview = data_json[:150].replace('\n', ' ').replace('  ', ' ')
+                                    text.append(preview, style="dim white")
+                                    if len(data_json) > 150:
+                                        text.append("...", style="dim")
+                                except Exception:
+                                    text.append("(data)", style="dim")
 
-                            text.append("\n")
-                        else:
-                            text.append("✗ ", style="red")
-                            text.append(self.execution_result.get("message", "Unknown error"), style="red")
-                            text.append("\n")
-                    except Exception as e:
-                        text.append("│\n│ ", style="dim")
-                        text.append(f"(Display Error: {str(e)[:100]})\n", style="red")
-                        import traceback
-                        traceback.print_exc()
+                                text.append("\n")
+                            else:
+                                text.append("✗ ", style="red")
+                                text.append(self.execution_result.get("message", "Unknown error"), style="red")
+                                text.append("\n")
+                        except Exception as e:
+                            text.append("│\n│ ", style="dim")
+                            text.append(f"(Display Error: {str(e)[:100]})\n", style="red")
+                            import traceback
+                            traceback.print_exc()
             else:
                 text.append("│ ", style="dim")
                 text.append("(no command found)", style="dim yellow")
@@ -310,6 +319,9 @@ class WisprActionsApp(App):
         self.release_timer = None
         self.mcp_servers_config = []
         self.current_processing_task = None
+
+        # Store last successful command context
+        self.last_command_context = None
 
         self.audio_capture = None
         if MIC_AVAILABLE and AudioCapture:
@@ -460,6 +472,50 @@ class WisprActionsApp(App):
     def action_quit(self) -> None:
         self.exit()
 
+    def get_screen_context(self) -> str:
+        """Capture current screen context for ASR hints."""
+        context_parts = []
+
+        mic = self.query_one(MicrophoneDisplay)
+
+        if mic.transcript:
+            context_parts.append(f"Last request: {mic.transcript}")
+
+        if mic.parsed_command:
+            func = mic.parsed_command.get("function", "")
+            args = mic.parsed_command.get("arguments", {})
+
+            context_parts.append(f"Last action: {func}")
+
+            if args:
+                for key, value in args.items():
+                    if isinstance(value, str) and len(value) < 50:
+                        context_parts.append(f"{key}: {value}")
+
+        if mic.execution_result and mic.execution_result.get("success"):
+            data = mic.execution_result.get("data", "")
+
+            if data:
+                try:
+                    if isinstance(data, list):
+                        if len(data) > 0:
+                            first_item = data[0]
+                            if isinstance(first_item, dict):
+                                if "name" in first_item:
+                                    names = [item.get("name", "") for item in data[:3] if isinstance(item, dict)]
+                                    context_parts.append(f"Results: {', '.join(names)}")
+                                elif "full_name" in first_item:
+                                    repos = [item.get("full_name", "") for item in data[:3] if isinstance(item, dict)]
+                                    context_parts.append(f"Repos: {', '.join(repos)}")
+                    elif isinstance(data, str):
+                        preview = data[:100].replace('\n', ' ')
+                        if preview:
+                            context_parts.append(f"Content: {preview}")
+                except Exception:
+                    pass
+
+        return " | ".join(context_parts) if context_parts else ""
+
     async def process_audio(self) -> None:
         if not self.audio_capture:
             self.notify("Audio capture not available")
@@ -487,12 +543,15 @@ class WisprActionsApp(App):
             self.notify("Transcribing...")
             start_time = time.time()
 
+            screen_context = self.get_screen_context()
+
             loop = asyncio.get_event_loop()
             transcript = await loop.run_in_executor(
                 None,
                 self.transcriber.transcribe,
                 audio_data,
-                16000
+                16000,
+                screen_context
             )
 
             timings['asr'] = time.time() - start_time
@@ -502,6 +561,12 @@ class WisprActionsApp(App):
                 mic.show_result("(no speech detected)", None, None, timings)
                 return
 
+            # Use stored context from the last successful command
+            intent_context = self.last_command_context
+            if intent_context:
+                self.notify(f"✓ Using context: {intent_context.get('previous_function')}")
+
+            # Now update the display with the new transcript (this clears parsed_command temporarily)
             mic.show_result(transcript, None, None, timings)
 
             self.notify("Understanding command...")
@@ -510,13 +575,14 @@ class WisprActionsApp(App):
             parsed = await loop.run_in_executor(
                 None,
                 self.intent_parser.parse,
-                transcript
+                transcript,
+                intent_context
             )
 
             timings['intent'] = time.time() - start_time
             mic.show_result(transcript, parsed, None, timings)
 
-            if parsed:
+            if parsed and parsed.get("function"):
                 if self.mcp_gateway:
                     self.notify("Executing...")
                     start_time = time.time()
@@ -530,6 +596,14 @@ class WisprActionsApp(App):
 
                     if result["success"]:
                         self.notify(f"✓ {result['message']}")
+
+                        # Store context for next command
+                        self.last_command_context = {
+                            "previous_request": transcript,
+                            "previous_function": parsed["function"],
+                            "previous_arguments": parsed.get("arguments", {}),
+                            "previous_result": result.get("data")
+                        }
                     else:
                         self.notify(f"✗ {result['message']}")
 
@@ -545,6 +619,9 @@ class WisprActionsApp(App):
                             pass
                 else:
                     self.notify("Command recognized (MCP not connected)")
+            elif parsed and parsed.get("error"):
+                # Show the error message from GPT-4
+                self.notify(f"❌ {parsed['error']}")
             else:
                 self.notify(f"No command found in: {transcript}")
 

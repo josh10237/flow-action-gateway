@@ -11,7 +11,7 @@ class Transcriber:
     def __init__(self, api_key: str):
         self.client = OpenAI(api_key=api_key)
 
-    def transcribe(self, audio_data: bytes, sample_rate: int = 16000) -> str:
+    def transcribe(self, audio_data: bytes, sample_rate: int = 16000, prompt: str = None) -> str:
         if not audio_data:
             return ""
 
@@ -19,11 +19,16 @@ class Transcriber:
         wav_buffer.seek(0)
         wav_buffer.name = "audio.wav"
 
-        transcript = self.client.audio.transcriptions.create(
-            model="whisper-1",
-            file=wav_buffer,
-            language="en"
-        )
+        kwargs = {
+            "model": "whisper-1",
+            "file": wav_buffer,
+            "language": "en"
+        }
+
+        if prompt:
+            kwargs["prompt"] = prompt
+
+        transcript = self.client.audio.transcriptions.create(**kwargs)
 
         text = transcript.text.strip()
 
