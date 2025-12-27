@@ -345,7 +345,14 @@ class WisprActionsApp(App):
                 await self.mcp_gateway.connect_all()
 
                 tools = self.mcp_gateway.get_gpt4_tools()
-                self.intent_parser = IntentParser(self.config["openai_api_key"], tools)
+
+                # Get filesystem root for intent parsing context
+                filesystem_root = None
+                filesystem_server = next((s for s in self.mcp_servers_config if s["name"] == "filesystem"), None)
+                if filesystem_server and filesystem_server.get("args"):
+                    filesystem_root = filesystem_server["args"][-1]
+
+                self.intent_parser = IntentParser(self.config["openai_api_key"], tools, filesystem_root)
 
                 mic = self.query_one(MicrophoneDisplay)
                 mic.set_mcp_status(self.mcp_servers_config, self.mcp_gateway.sessions)
@@ -392,14 +399,50 @@ class WisprActionsApp(App):
             self.notify("Settings screen not available")
             return
 
-        def on_save(updated_servers):
+        # Reload config from disk to get fresh values
+        if self.mcp_gateway and self.mcp_gateway.mcp_config:
+            self.mcp_gateway.mcp_config.load_config()
+            self.mcp_servers_config = self.mcp_gateway.mcp_config.get_server_configs()
+
+        async def on_save(updated_servers):
             if self.mcp_gateway and self.mcp_gateway.mcp_config:
                 self.mcp_gateway.mcp_config.save_config(updated_servers)
+
+                try:
+                    await self.mcp_gateway.close_all()
+                    await self.mcp_gateway.connect_all()
+
+                    # Reload config after reconnecting
+                    self.mcp_gateway.mcp_config.load_config()
+                    self.mcp_servers_config = self.mcp_gateway.mcp_config.get_server_configs()
+
+                    # Update intent parser with new tools and filesystem root
+                    if self.intent_parser:
+                        self.intent_parser.tools = self.mcp_gateway.get_gpt4_tools()
+
+                        # Update filesystem root if it changed
+                        filesystem_server = next((s for s in self.mcp_servers_config if s["name"] == "filesystem"), None)
+                        if filesystem_server and filesystem_server.get("args"):
+                            self.intent_parser.filesystem_root = filesystem_server["args"][-1]
+                        else:
+                            self.intent_parser.filesystem_root = None
+
+                    mic = self.query_one(MicrophoneDisplay)
+                    mic.set_mcp_status(self.mcp_servers_config, self.mcp_gateway.sessions)
+
+                    self.notify(f"Reconnected: {len(self.mcp_gateway.sessions)} servers active")
+                except Exception as e:
+                    self.notify(f"Reconnection failed: {str(e)}")
 
         connected_servers = self.mcp_gateway.sessions if self.mcp_gateway else {}
         original_configs = self.mcp_gateway.mcp_config.get_original_server_configs() if self.mcp_gateway and self.mcp_gateway.mcp_config else self.mcp_servers_config
 
         def on_settings_close():
+            # Reload config to refresh UI
+            if self.mcp_gateway and self.mcp_gateway.mcp_config:
+                self.mcp_gateway.mcp_config.load_config()
+                self.mcp_servers_config = self.mcp_gateway.mcp_config.get_server_configs()
+
             mic = self.query_one(MicrophoneDisplay)
             mic.set_mcp_status(self.mcp_servers_config, self.mcp_gateway.sessions if self.mcp_gateway else {})
 

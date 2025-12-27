@@ -148,9 +148,8 @@ class MCPSettingsWidget(Static):
             for key in env_vars.keys():
                 try:
                     input_widget = self.query_one(f"#env-{self.server_config['name']}-{key}", Input)
-                    # Store as ${VAR} template if user wants to use env var, or literal value
                     value = input_widget.value.strip()
-                    updated_env[key] = value if value else f"${{{key}}}"
+                    updated_env[key] = value
                 except Exception:
                     updated_env[key] = env_vars[key]  # Keep original if widget not found
 

@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 from typing import List, Dict, Any
 import copy
+from dotenv import load_dotenv
 
 
 class MCPConfig:
@@ -23,6 +24,11 @@ class MCPConfig:
     def load_config(self):
         if not self.config_path.exists():
             raise FileNotFoundError(f"MCP config not found: {self.config_path}")
+
+        # Reload environment variables from .env file
+        env_path = self.config_path.parent / ".env"
+        if env_path.exists():
+            load_dotenv(env_path, override=True)
 
         with open(self.config_path, 'r') as f:
             config = json.load(f)
@@ -61,7 +67,23 @@ class MCPConfig:
         return self.servers
 
     def get_enabled_server_configs(self) -> List[Dict[str, Any]]:
-        return [s for s in self.servers if s.get("enabled", True)]
+        enabled_servers = []
+        for s in self.servers:
+            if not s.get("enabled", True):
+                continue
+
+            # Check if required values are present
+            args = s.get("args", [])
+            if any(arg == "" for arg in args):
+                continue
+
+            env = s.get("env", {})
+            if any(value == "" for value in env.values()):
+                continue
+
+            enabled_servers.append(s)
+
+        return enabled_servers
 
     def get_original_server_configs(self) -> List[Dict[str, Any]]:
         return self.original_servers
@@ -83,9 +105,16 @@ class MCPConfig:
             enabled = server.get("enabled", True)
             existing_env[f"MCP_{server_name}_ENABLED"] = "true" if enabled else "false"
 
-            for i, arg in enumerate(server.get("args", [])):
-                if isinstance(arg, str):
-                    existing_env[f"MCP_{server_name}_ARG_{i}"] = arg
+            original_server = next((s for s in self.original_servers if s["name"] == server["name"]), None)
+            if original_server:
+                original_args = original_server.get("args", [])
+                expanded_args = server.get("args", [])
+
+                for orig_arg, expanded_arg in zip(original_args, expanded_args):
+                    if isinstance(orig_arg, str) and orig_arg.startswith("${") and orig_arg.endswith("}"):
+                        env_var = orig_arg[2:-1]
+                        if expanded_arg:
+                            existing_env[env_var] = expanded_arg
 
             env_vars = server.get("env", {})
             for key, value in env_vars.items():
@@ -104,10 +133,14 @@ class MCPConfig:
                 f.write(f"\n# {display_name}\n")
                 f.write(f"MCP_{server_name}_ENABLED={existing_env.get(f'MCP_{server_name}_ENABLED', 'true')}\n")
 
-                for i, arg in enumerate(server.get("args", [])):
-                    arg_key = f"MCP_{server_name}_ARG_{i}"
-                    if arg_key in existing_env:
-                        f.write(f"{arg_key}={existing_env[arg_key]}\n")
+                original_server = next((s for s in self.original_servers if s["name"] == server["name"]), None)
+                if original_server:
+                    original_args = original_server.get("args", [])
+                    for orig_arg in original_args:
+                        if isinstance(orig_arg, str) and orig_arg.startswith("${") and orig_arg.endswith("}"):
+                            env_var = orig_arg[2:-1]
+                            if env_var in existing_env:
+                                f.write(f"{env_var}={existing_env[env_var]}\n")
 
                 for key in server.get("env", {}).keys():
                     if key in existing_env:
